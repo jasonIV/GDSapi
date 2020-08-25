@@ -1,71 +1,49 @@
-'use strict';
-
 const AWS = require('aws-sdk');
-const dynamoDb = new AWS.DynamoDB.DocumentClient();
 
-module.exports.rollbackBalance = (event, context, callback) => {
-  const body = JSON.parse(event.body);
-  const id = body.id;
-  const params = {
-    TableName: process.env.BALANCERECORDS_TABLE, 
-    Key: {
-      id
-    }
-  }
-  dynamoDb.get(params,(error, result) => {
-    if (error) {
-      console.error(error);
-      callback(null, {
-        statusCode: error.statusCode || 501,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(error),
-      });
-      return;
-    }
-    const rollbackBalance = result.Item.topup;
-    const useragent = result.Item.useragent;
-    dynamoDb.delete(params, (error) => {
-      if (error) {
-        console.error(error);
-        callback(null, {
-          statusCode: error.statusCode || 501,
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(error),
-        });
-        return;
-      }
-    })
-    dynamoDb.update({
-      TableName: process.env.USERSINFOS_TABLE,
-      Key: {
-        phone: useragent,
-      },
-      UpdateExpression: "SET balance = balance - :val",
-      ConditionExpression: "balance >= :val",
-      ExpressionAttributeValues: {
-          ":val": rollbackBalance
-      },
-      ReturnValues: "UPDATED_NEW"
-    },(error, result) => {
-    if (error) {
-      console.error(error);
-      callback(null, {
-        statusCode: error.statusCode || 501,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(error),
-      });
-      return;
-    }
-    const response = {
-      statusCode: 200,
-      headers: { 
+const dynamo = new AWS.DynamoDB.DocumentClient();
+
+exports.handler = async (event, context) => {
+    //console.log('Received event:', JSON.stringify(event, null, 2));
+
+    let body;
+    let rollbackBalance;
+    let useragent;
+    let statusCode = '200';
+    const headers = {
         'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Credentials': true,
-      },
-      body: JSON.stringify(result)
-    }
-    callback(null, response);
-    })
-  })
-}
+    };
+    const _date = event.date;
+    const params = {
+        Key: {
+            date: _date,
+            sort: _date
+        },
+        TableName: "BalanceRecords"
+    };
+    try {
+        body = await dynamo.get(params).promise();
+        rollbackBalance = body.Item.topup;
+        useragent = body.Item.useragent;
+        body = await dynamo.delete(params).promise();
+        body = await dynamo.update({
+            TableName: "GDSUsers",
+            Key: {
+                phone: useragent,
+            },
+            UpdateExpression: "SET gds_balance = gds_balance - :val",
+            ConditionExpression: "gds_balance >= :val",
+            ExpressionAttributeValues: {
+                ":val": rollbackBalance
+            },
+            ReturnValues: "UPDATED_NEW"
+        }).promise()
+    } catch (err) {
+        statusCode = '400';
+        body = err.message;
+    } 
+    return {
+        statusCode,
+        body,
+        headers,
+    };
+};
