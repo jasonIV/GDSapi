@@ -5,8 +5,5 @@
   "author": "Jason",
   "license": "ISC",
   "dependencies": {
-    "axios": "^0.20.0",
-    "crypto-js": "^4.0.0",
-    "uuid": "^8.3.0"
   }
 }
