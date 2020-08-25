@@ -1,89 +1,59 @@
-'use strict';
-
 const AWS = require('aws-sdk');
-const dynamoDb = new AWS.DynamoDB.DocumentClient();
-const uuid = require('uuid');
 
-module.exports.addBalance = (event, context, callback) => {
-  const body = JSON.parse(event.body);
-  let useragent = body.useragent;
-  if(useragent.startsWith("95")){
-      useragent = "0" + useragent.slice(2,);
-  }
-  if(useragent.startsWith("+95")){
-      useragent = "0" + useragent.slice(3,);
-  }
-  const topup = parseInt(body.topup);
-  const date_ = Date.now();
-  const params1 = {
-    TableName: process.env.USERSINFOS_TABLE,
-    Key: {
-      phone: useragent
-    },
-    ProjectExpression: "username"
-  }
-  const params2 = {
-    TableName: process.env.USERSINFOS_TABLE,
-    Key:{
-        phone: useragent
-    },
-    UpdateExpression: "set balance = balance + :topup",
-    ExpressionAttributeValues: {
-        ":topup": topup
-    },
-    ReturnValues: "UPDATED_NEW"
-  }
-  dynamoDb.get(params1, (error, result) => {
-    if (error) {
-      console.error(error);
-      callback(null, {
-        statusCode: error.statusCode || 501,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(error),
-      });
-      return;
+const dynamo = new AWS.DynamoDB.DocumentClient();
+
+exports.handler = async (event, context) => {
+    //console.log('Received event:', JSON.stringify(event, null, 2));
+
+    let body;
+    let username;
+    let useragent = event.useragent;
+    if(useragent.startsWith("95")){
+        useragent = useragent.slice(2,);
+        useragent = "0" + useragent;
     }
-    const username = result.Item.username;
-    dynamoDb.put({
-      Item: {
-        id: uuid.v1(),
-        username,
-        useragent,
-        topup,
-        date: date_,
-      },
-      TableName: process.env.BALANCERECORDS_TABLE
-    }, (error, result) => {
-      if (error) {
-        console.error(error);
-        callback(null, {
-          statusCode: error.statusCode || 501,
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(error),
-        });
-        return;
-      }
-    })
-    dynamoDb.update(params2, (error, result) => {
-      if (error) {
-        console.error(error);
-        callback(null, {
-          statusCode: error.statusCode || 501,
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(error),
-        });
-        return;
-      }
-      const response = {
-        statusCode: 200,
-        headers: { 
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Credentials': true,
+    if(useragent.startsWith("+95")){
+        useragent = useragent.slice(3,);
+        useragent = "0" + useragent;
+    }
+    const topup = parseInt(event.topup);
+    const date_ = Date.now();
+    
+    const payload1 = {
+        TableName: "GDSUsers",
+        Key:{
+            phone: useragent
         },
-        body: JSON.stringify(result.Attributes)
-      }
-      callback(null, response);
-    })
-  })
-}
+        UpdateExpression: "set gds_balance = gds_balance + :topup",
+        ExpressionAttributeValues: {
+            ":topup": topup
+        },
+        ReturnValues: "UPDATED_NEW"
+    }
+    
+    try {
+        body = await dynamo.get({
+            TableName: "GDSUsers",
+            Key: {
+                phone: useragent
+            },
+            ProjectionExpression: "username"
+        }).promise()
+        username = body.Item.username;
+        body = await dynamo.put({
+        Item: {
+            username,
+            useragent,
+            topup,
+            date: date_,
+            sort: date_
+        },
+        TableName: "BalanceRecords",
+        }).promise();
+        body = await dynamo.update(payload1).promise();
+    } catch (err) {
+        body = err.message;
+    } 
+
+    return body;
+};
