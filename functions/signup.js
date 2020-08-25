@@ -1,65 +1,63 @@
-'use strict';
-const AES = require('crypto-js/aes');
-const AWS = require('aws-sdk'); // eslint-disable-line import/no-extraneous-dependencies
+const AWS = require('aws-sdk');
 
-const dynamoDb = new AWS.DynamoDB.DocumentClient();
+const dynamo = new AWS.DynamoDB.DocumentClient();
 
-module.exports.signUp = (event, context, callback) => {
-  const body = JSON.parse(event.body);
-  let phone = body.phone
-  if(phone.startsWith('95')){
-    phone = "0" + phone.slice(2,)
-  };
-  if(phone.startsWith('+95')){
-    phone = "0" + phone.slice(3,)
-  };
-  let password = AES.encrypt(body.password, process.env.SECPASS).toString();
-  const params1 = {
-    TableName: process.env.USERSCREDENTIALS_TABLE,
-    Item: {
-      username: body.username,
-      phone,
-      password,
-    }
-  }
-  const params2 = {
-    TableName: process.env.USERSINFOS_TABLE,
-    Item: {
-      username: body.username,
-      phone,
-      balance: 0,
-      transactions: []
-    }
-  }
+exports.handler = async (event, context) => {
+    //console.log('Received event:', JSON.stringify(event, null, 2));
 
-  dynamoDb.put(params1, (error) => {
-    //handle potential errors
-    if(error){
-      callback(null, {
-        statusCode: error.statusCode || 501,
-        headers: { "Content-Type": "application/json"},
-        body: JSON.stringify(error)
-      });
-      return;
+    let body;
+    let statusCode = '200';
+    const headers = {
+        'Content-Type': 'application/json',
+    };
+    
+    const username= event.username;
+    let phone = event.phone;
+    if(phone.startsWith("95")){
+        phone = phone.slice(2,);
+        phone = "0" + phone;
     }
-  });
+    if(phone.startsWith("+95")){
+        phone = phone.slice(3,);
+        phone = "0" + phone;
+    }
+    const password = event.password;
+    const encodedPassword = new Buffer(password).toString('base64');
+    const gds_balance = 0;
+    const params1 = {
+        Item: {
+            phone: phone,
+            password: encodedPassword
+        },
+        TableName: "GDSCredentials"
+    }
+    
+    const params2 = {
+        Item: {
+            username: username,
+            phone: phone,
+            gds_balance: gds_balance,
+            transactions: []
+        },
+        TableName: "GDSUsers"
+    }
 
-  dynamoDb.put(params2, (error) => {
-    //handle potential errors
-    if(error){
-      callback(null, {
-        statusCode: error.statusCode || 501,
-        headers: { "Content-Type": "application/json"},
-        body: JSON.stringify(error)
-      });
-      return;
+    try {
+        body = await dynamo.put(params1).promise();
+        body = await dynamo.put(params2).promise();
+        body = {
+            isSignedUp: true
+        }
+    } catch (err) {
+        statusCode = '400';
+        body = err.message;
+    } finally {
+        body = body;
     }
-    //create a response
-    const response = {
-      statusCode: 200,
-      headers: { "Content-Type": "application/json"},
-      body: "Signed up successfully."
-    }
-    callback(null, response);
-  })
+
+    return {
+        statusCode,
+        body,
+        headers,
+    };
 };

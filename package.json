@@ -1,12 +1,9 @@
 {
   "name": "gdsapi",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "GDS API",
   "author": "Jason",
   "license": "ISC",
   "dependencies": {
-    "axios": "^0.20.0",
-    "crypto-js": "^4.0.0",
-    "uuid": "^8.3.0"
   }
 }

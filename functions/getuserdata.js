@@ -1,36 +1,36 @@
-'use strict';
+const AWS = require('aws-sdk');
 
-const AWS = require('aws-sdk'); // eslint-disable-line import/no-extraneous-dependencies
+const dynamo = new AWS.DynamoDB.DocumentClient();
 
-const dynamoDb = new AWS.DynamoDB.DocumentClient();
+exports.handler = async (event, context) => {
+    //console.log('Received event:', JSON.stringify(event, null, 2));
+    console.log(event)
 
-module.exports.getUserData = (event, context, callback) => {
-  const body = JSON.parse(event.body)
-  const params = {
-    TableName: process.env.USERSINFOS_TABLE,
-    Key: {
-      phone: body.phone
-    },
-  };
-
-  // fetch todo from the database
-  dynamoDb.get(params, (error, result) => {
-    // handle potential errors
-    if (error) {
-      console.error(error);
-      callback(null, {
-        statusCode: error.statusCode || 501,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(error),
-      });
-      return;
+    let body;
+    let statusCode = '200';
+    const headers = {
+        'Content-Type': 'application/json',
+    };
+    
+    const params = {
+        TableName: "GDSUsers",
+        Key: {
+            "phone": event.phone
+        }
     }
 
-    // create a response
-    const response = {
-      statusCode: 200,
-      body: JSON.stringify(result.Item),
+    try {
+        body = await dynamo.get(params).promise();
+    } catch (err) {
+        statusCode = '400';
+        body = err.message;
+    } finally {
+        body = body
+    }
+
+    return {
+        statusCode,
+        body,
+        headers,
     };
-    callback(null, response);
-  });
 };
