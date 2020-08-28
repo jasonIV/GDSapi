@@ -47,16 +47,27 @@ exports.handler = async (event, context) => {
 
     try {
          body = await dynamo.update(payload).promise();
+         body = {
+            status: 1,
+            message: "Success",
+            trans_id,
+            mtk_agent: "medi",
+            mtk_agent_code: "MEDI9654",
+            mtk_agent_secret: "259kj2345k2034jdf893jkd893jfd8"
+        }
     } catch (err) {
         statusCode = '400';
-        body = err.message;
+        body = {
+            status: 0,
+            message: "Fail",
+            trans_id,
+            mtk_agent: "medi",
+            mtk_agent_code: "MEDI9654",
+            mtk_agent_secret: "259kj2345k2034jdf893jkd893jfd8"
+        }
     } finally {
         body = body
     }
 
-    return {
-        statusCode,
-        body,
-        headers,
-    };
+    return body;
 };
