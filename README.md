@@ -6,13 +6,15 @@ Contain all functions for both GDS admin and GDS app.
 
 # Version
 
-- 1.0.1
+- 1.0.2
 
 # Version History
 
 - 1.0.0
 
-- 1.0.1 (current)
+- 1.0.1 
+
+- 1.0.2 (current)
 
 # Features
 
