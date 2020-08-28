@@ -18,7 +18,7 @@ Contain all functions for both GDS admin and GDS app.
 
 # Features
 
-- check [here](./functions).
+- Check [here](./functions).
 
 # Changelog
 
